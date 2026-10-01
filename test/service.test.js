@@ -2,14 +2,32 @@ const request = require('supertest');
 const app = require('../src/service');
 const { DB } = require('../src/database/database');
 
+async function registerOrLogin(name, email, password) {
+  const login = await request(app).put('/api/auth').send({ email, password });
+  if (login.status === 200) {
+    return login;
+  }
+  return request(app).post('/api/auth').send({ name, email, password });
+}
+
 describe('JWT Pizza Service', () => {
   let adminToken;
+  let adminUserId;
   let dinerToken;
+  let dinerUserId;
   let franchiseeToken;
   let franchiseeUserId;
+  let franchiseId;
+  let storeId;
+  let menuId;
+  const franchiseName = `pizzaPocket${Date.now()}`;
 
   beforeAll(async () => {
     await DB.initialized;
+    const admin = await registerOrLogin('常用名字', 'a@jwt.com', 'admin');
+    expect(admin.status).toBe(200);
+    adminToken = admin.body.token;
+    adminUserId = admin.body.user.id;
   });
 
   test('GET / returns welcome', async () => {
@@ -38,12 +56,11 @@ describe('JWT Pizza Service', () => {
   });
 
   test('register diner and login', async () => {
-    const register = await request(app)
-      .post('/api/auth')
-      .send({ name: 'pizza diner', email: 'd@jwt.com', password: 'diner' });
+    const register = await registerOrLogin('pizza diner', 'd@jwt.com', 'diner');
     expect(register.status).toBe(200);
     expect(register.body.token).toBeDefined();
     dinerToken = register.body.token;
+    dinerUserId = register.body.user.id;
 
     const login = await request(app).put('/api/auth').send({ email: 'd@jwt.com', password: 'diner' });
     expect(login.status).toBe(200);
@@ -51,9 +68,7 @@ describe('JWT Pizza Service', () => {
   });
 
   test('register franchisee', async () => {
-    const res = await request(app)
-      .post('/api/auth')
-      .send({ name: 'pizza franchisee', email: 'f@jwt.com', password: 'franchisee' });
+    const res = await registerOrLogin('pizza franchisee', 'f@jwt.com', 'franchisee');
     expect(res.status).toBe(200);
     franchiseeToken = res.body.token;
     franchiseeUserId = res.body.user.id;
@@ -84,7 +99,7 @@ describe('JWT Pizza Service', () => {
 
   test('PUT /api/user/:id forbidden for other users', async () => {
     const res = await request(app)
-      .put('/api/user/1')
+      .put(`/api/user/${adminUserId}`)
       .set('Authorization', `Bearer ${dinerToken}`)
       .send({ name: 'hacker', email: 'd@jwt.com', password: 'diner' });
     expect(res.status).toBe(403);
@@ -92,7 +107,7 @@ describe('JWT Pizza Service', () => {
 
   test('admin can update user profile', async () => {
     const res = await request(app)
-      .put('/api/user/1')
+      .put(`/api/user/${adminUserId}`)
       .set('Authorization', `Bearer ${adminToken}`)
       .send({ name: '常用名字', email: 'a@jwt.com', password: 'admin' });
     expect(res.status).toBe(200);
@@ -123,7 +138,9 @@ describe('JWT Pizza Service', () => {
         price: 0.0038,
       });
     expect(res.status).toBe(200);
-    expect(res.body.some((item) => item.title === 'Veggie')).toBe(true);
+    const veggie = res.body.find((item) => item.title === 'Veggie');
+    expect(veggie).toBeDefined();
+    menuId = veggie.id;
   });
 
   test('diner cannot add menu items', async () => {
@@ -143,26 +160,29 @@ describe('JWT Pizza Service', () => {
     const franchise = await request(app)
       .post('/api/franchise')
       .set('Authorization', `Bearer ${adminToken}`)
-      .send({ name: 'pizzaPocket', admins: [{ email: 'f@jwt.com' }] });
+      .send({ name: franchiseName, admins: [{ email: 'f@jwt.com' }] });
     expect(franchise.status).toBe(200);
-    expect(franchise.body.id).toBeDefined();
+    franchiseId = franchise.body.id;
 
     const store = await request(app)
-      .post('/api/franchise/1/store')
+      .post(`/api/franchise/${franchiseId}/store`)
       .set('Authorization', `Bearer ${adminToken}`)
-      .send({ franchiseId: 1, name: 'SLC' });
+      .send({ franchiseId, name: 'SLC' });
     expect(store.status).toBe(200);
     expect(store.body.name).toBe('SLC');
+    storeId = store.body.id;
   });
 
   test('list franchises', async () => {
-    const res = await request(app).get('/api/franchise?page=0&limit=10&name=pizzaPocket');
+    const res = await request(app).get(`/api/franchise?page=0&limit=10&name=${franchiseName}`);
     expect(res.status).toBe(200);
     expect(res.body.franchises.length).toBeGreaterThan(0);
   });
 
   test('admin list franchises includes franchise details', async () => {
-    const res = await request(app).get('/api/franchise?page=0&limit=10&name=pizzaPocket').set('Authorization', `Bearer ${adminToken}`);
+    const res = await request(app)
+      .get(`/api/franchise?page=0&limit=10&name=${franchiseName}`)
+      .set('Authorization', `Bearer ${adminToken}`);
     expect(res.status).toBe(200);
     expect(res.body.franchises[0].admins).toBeDefined();
     expect(res.body.franchises[0].stores).toBeDefined();
@@ -170,7 +190,7 @@ describe('JWT Pizza Service', () => {
 
   test('franchisee can create a store', async () => {
     const res = await request(app)
-      .post('/api/franchise/1/store')
+      .post(`/api/franchise/${franchiseId}/store`)
       .set('Authorization', `Bearer ${franchiseeToken}`)
       .send({ name: 'Provo' });
     expect(res.status).toBe(200);
@@ -181,7 +201,7 @@ describe('JWT Pizza Service', () => {
     const res = await request(app)
       .post('/api/franchise')
       .set('Authorization', `Bearer ${adminToken}`)
-      .send({ name: 'badFranchise', admins: [{ email: 'nobody@jwt.com' }] });
+      .send({ name: `badFranchise${Date.now()}`, admins: [{ email: 'nobody@jwt.com' }] });
     expect(res.status).toBe(404);
   });
 
@@ -194,7 +214,7 @@ describe('JWT Pizza Service', () => {
   });
 
   test('delete user is not implemented', async () => {
-    const res = await request(app).delete('/api/user/2').set('Authorization', `Bearer ${adminToken}`);
+    const res = await request(app).delete(`/api/user/${dinerUserId}`).set('Authorization', `Bearer ${adminToken}`);
     expect(res.status).toBe(200);
     expect(res.body.message).toBe('not implemented');
   });
@@ -211,7 +231,7 @@ describe('JWT Pizza Service', () => {
     const res = await request(app)
       .post('/api/franchise')
       .set('Authorization', `Bearer ${dinerToken}`)
-      .send({ name: 'failFranchise', admins: [{ email: 'f@jwt.com' }] });
+      .send({ name: `failFranchise${Date.now()}`, admins: [{ email: 'f@jwt.com' }] });
     expect(res.status).toBe(403);
   });
 
@@ -220,9 +240,9 @@ describe('JWT Pizza Service', () => {
       .post('/api/order')
       .set('Authorization', `Bearer ${dinerToken}`)
       .send({
-        franchiseId: 1,
-        storeId: 1,
-        items: [{ menuId: 1, description: 'Veggie', price: 0.05 }],
+        franchiseId,
+        storeId,
+        items: [{ menuId, description: 'Veggie', price: 0.05 }],
       });
     expect(order.status).toBe(200);
     expect(order.body.jwt).toBeDefined();
@@ -234,11 +254,11 @@ describe('JWT Pizza Service', () => {
 
   test('delete store and franchise', async () => {
     const delStore = await request(app)
-      .delete('/api/franchise/1/store/1')
+      .delete(`/api/franchise/${franchiseId}/store/${storeId}`)
       .set('Authorization', `Bearer ${adminToken}`);
     expect(delStore.status).toBe(200);
 
-    const delFranchise = await request(app).delete('/api/franchise/1');
+    const delFranchise = await request(app).delete(`/api/franchise/${franchiseId}`);
     expect(delFranchise.status).toBe(200);
   });
 

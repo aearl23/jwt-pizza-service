@@ -29,27 +29,31 @@ class DB {
     }
   }
 
+  async addUserOnConnection(connection, user) {
+    const hashedPassword = await bcrypt.hash(user.password, 10);
+
+    const userResult = await this.query(connection, `INSERT INTO user (name, email, password) VALUES (?, ?, ?)`, [user.name, user.email, hashedPassword]);
+    const userId = userResult.insertId;
+    for (const role of user.roles) {
+      switch (role.role) {
+        case Role.Franchisee: {
+          const franchiseId = await this.getID(connection, 'name', role.object, 'franchise');
+          await this.query(connection, `INSERT INTO userRole (userId, role, objectId) VALUES (?, ?, ?)`, [userId, role.role, franchiseId]);
+          break;
+        }
+        default: {
+          await this.query(connection, `INSERT INTO userRole (userId, role, objectId) VALUES (?, ?, ?)`, [userId, role.role, 0]);
+          break;
+        }
+      }
+    }
+    return { ...user, id: userId, password: undefined };
+  }
+
   async addUser(user) {
     const connection = await this.getConnection();
     try {
-      const hashedPassword = await bcrypt.hash(user.password, 10);
-
-      const userResult = await this.query(connection, `INSERT INTO user (name, email, password) VALUES (?, ?, ?)`, [user.name, user.email, hashedPassword]);
-      const userId = userResult.insertId;
-      for (const role of user.roles) {
-        switch (role.role) {
-          case Role.Franchisee: {
-            const franchiseId = await this.getID(connection, 'name', role.object, 'franchise');
-            await this.query(connection, `INSERT INTO userRole (userId, role, objectId) VALUES (?, ?, ?)`, [userId, role.role, franchiseId]);
-            break;
-          }
-          default: {
-            await this.query(connection, `INSERT INTO userRole (userId, role, objectId) VALUES (?, ?, ?)`, [userId, role.role, 0]);
-            break;
-          }
-        }
-      }
-      return { ...user, id: userId, password: undefined };
+      return await this.addUserOnConnection(connection, user);
     } finally {
       connection.end();
     }
@@ -344,9 +348,10 @@ class DB {
           await connection.query(statement);
         }
 
-        if (!dbExists) {
+        const [adminRows] = await connection.execute(`SELECT id FROM user WHERE email=?`, ['a@jwt.com']);
+        if (adminRows.length === 0) {
           const defaultAdmin = { name: '常用名字', email: 'a@jwt.com', password: 'admin', roles: [{ role: Role.Admin }] };
-          await this.addUser(defaultAdmin);
+          await this.addUserOnConnection(connection, defaultAdmin);
         }
       } finally {
         connection.end();
