@@ -25,7 +25,9 @@ describe('JWT Pizza Service', () => {
   beforeAll(async () => {
     await DB.initialized;
     const admin = await registerOrLogin('常用名字', 'a@jwt.com', 'admin');
-    expect(admin.status).toBe(200);
+    if (admin.status !== 200) {
+      throw new Error(`Admin setup failed (${admin.status}): ${JSON.stringify(admin.body)}`);
+    }
     adminToken = admin.body.token;
     adminUserId = admin.body.user.id;
   });
