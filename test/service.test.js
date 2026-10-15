@@ -14,7 +14,6 @@ describe('JWT Pizza Service', () => {
   let adminToken;
   let adminUserId;
   let dinerToken;
-  let dinerUserId;
   let franchiseeToken;
   let franchiseeUserId;
   let franchiseId;
@@ -62,7 +61,6 @@ describe('JWT Pizza Service', () => {
     expect(register.status).toBe(200);
     expect(register.body.token).toBeDefined();
     dinerToken = register.body.token;
-    dinerUserId = register.body.user.id;
 
     const login = await request(app).put('/api/auth').send({ email: 'd@jwt.com', password: 'diner' });
     expect(login.status).toBe(200);
@@ -117,10 +115,36 @@ describe('JWT Pizza Service', () => {
     adminToken = res.body.token;
   });
 
-  test('list users stub', async () => {
+  test('list users requires auth', async () => {
+    const res = await request(app).get('/api/user');
+    expect(res.status).toBe(401);
+  });
+
+  test('non-admin cannot list users', async () => {
+    const res = await request(app).get('/api/user').set('Authorization', `Bearer ${dinerToken}`);
+    expect(res.status).toBe(403);
+  });
+
+  test('list users', async () => {
     const res = await request(app).get('/api/user').set('Authorization', `Bearer ${adminToken}`);
     expect(res.status).toBe(200);
-    expect(res.body.message).toBe('not implemented');
+    expect(Array.isArray(res.body.users)).toBe(true);
+    expect(res.body.users.length).toBeGreaterThan(0);
+    expect(res.body.users[0].roles).toBeDefined();
+    expect(typeof res.body.more).toBe('boolean');
+  });
+
+  test('list users filters by name', async () => {
+    const res = await request(app).get('/api/user?page=0&limit=10&name=*常用*').set('Authorization', `Bearer ${adminToken}`);
+    expect(res.status).toBe(200);
+    expect(res.body.users.some((u) => u.name === '常用名字')).toBe(true);
+  });
+
+  test('list users paginates', async () => {
+    const res = await request(app).get('/api/user?page=0&limit=1').set('Authorization', `Bearer ${adminToken}`);
+    expect(res.status).toBe(200);
+    expect(res.body.users.length).toBe(1);
+    expect(res.body.more).toBe(true);
   });
 
   test('GET /api/order/menu', async () => {
@@ -215,10 +239,23 @@ describe('JWT Pizza Service', () => {
     expect(res.body).toEqual([]);
   });
 
-  test('delete user is not implemented', async () => {
-    const res = await request(app).delete(`/api/user/${dinerUserId}`).set('Authorization', `Bearer ${adminToken}`);
+  test('delete user requires admin', async () => {
+    const res = await request(app).delete(`/api/user/${franchiseeUserId}`).set('Authorization', `Bearer ${dinerToken}`);
+    expect(res.status).toBe(403);
+  });
+
+  test('admin can delete a user', async () => {
+    const email = `delete${Date.now()}@jwt.com`;
+    const register = await request(app).post('/api/auth').send({ name: 'delete me', email, password: 'a' });
+    expect(register.status).toBe(200);
+    const userId = register.body.user.id;
+
+    const res = await request(app).delete(`/api/user/${userId}`).set('Authorization', `Bearer ${adminToken}`);
     expect(res.status).toBe(200);
-    expect(res.body.message).toBe('not implemented');
+    expect(res.body.message).toBe('user deleted');
+
+    const login = await request(app).put('/api/auth').send({ email, password: 'a' });
+    expect(login.status).toBe(404);
   });
 
   test('franchisee can list their franchises', async () => {
