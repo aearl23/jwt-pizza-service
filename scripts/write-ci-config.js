@@ -13,20 +13,23 @@ if (!factoryApiKey) {
   process.exit(1);
 }
 
+// Database settings default to the ephemeral MySQL service used for tests,
+// but can be overridden with environment variables for the production
+// deployment (RDS).
 const config = {
   jwtSecret,
   db: {
     connection: {
-      host: '127.0.0.1',
-      user: 'root',
-      password: 'tempdbpassword',
-      database: 'pizza',
+      host: process.env.DB_HOST || '127.0.0.1',
+      user: process.env.DB_USER || 'root',
+      password: process.env.DB_PASSWORD || 'tempdbpassword',
+      database: process.env.DB_NAME || 'pizza',
       connectTimeout: 60000,
     },
     listPerPage: 10,
   },
   factory: {
-    url: 'https://pizza-factory.cs329.click',
+    url: process.env.FACTORY_URL || 'https://pizza-factory.cs329.click',
     apiKey: factoryApiKey,
   },
 };
