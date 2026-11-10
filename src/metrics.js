@@ -93,25 +93,21 @@ class Metrics {
     const time = nowNanos();
     const metrics = [];
 
-    const methodPoints = Object.entries(this.requestCounts).map(([method, count]) => ({
-      attributes: [attribute('method', method)],
-      asInt: String(count),
+    const methodPoints = [...new Set(['GET', 'POST', 'PUT', 'DELETE', ...Object.keys(this.requestCounts)])].map(
+      (method) => ({
+        attributes: [attribute('method', method)],
+        asInt: String(this.requestCounts[method] || 0),
+        timeUnixNano: time,
+      })
+    );
+    metrics.push(sum('http_requests_total', '', methodPoints));
+
+    const authPoints = ['success', 'failure'].map((result) => ({
+      attributes: [attribute('result', result)],
+      asInt: String(this.authAttempts[result] || 0),
       timeUnixNano: time,
     }));
-    if (methodPoints.length > 0) {
-      metrics.push(sum('http_requests_total', '', methodPoints));
-    }
-
-    const authPoints = Object.entries(this.authAttempts)
-      .filter(([, count]) => count > 0)
-      .map(([result, count]) => ({
-        attributes: [attribute('result', result)],
-        asInt: String(count),
-        timeUnixNano: time,
-      }));
-    if (authPoints.length > 0) {
-      metrics.push(sum('auth_attempts_total', '', authPoints));
-    }
+    metrics.push(sum('auth_attempts_total', '', authPoints));
 
     metrics.push(gauge('active_users', '', this.activeUsers.size));
     metrics.push(gauge('system_cpu_usage_percent', '', this.cpuUsagePercent()));
@@ -123,17 +119,14 @@ class Metrics {
       );
     }
 
-    if (this.pizzasSold > 0) {
-      metrics.push(sum('pizzas_sold_total', '', [intPoint(this.pizzasSold, time)]));
-    }
-    if (this.pizzaCreationFailures > 0) {
-      metrics.push(
-        sum('pizza_creation_failures_total', '', [intPoint(this.pizzaCreationFailures, time)])
-      );
-    }
-    if (this.pizzaRevenue > 0) {
-      metrics.push(sum('pizza_revenue_total', '', [doublePoint(this.pizzaRevenue, time)]));
-    }
+    // Counters are always reported, even at zero, so Prometheus can observe the
+    // jump from 0 to N and rate()/increase() return non-zero values.
+    metrics.push(sum('pizzas_sold_total', '', [intPoint(this.pizzasSold, time)]));
+    metrics.push(
+      sum('pizza_creation_failures_total', '', [intPoint(this.pizzaCreationFailures, time)])
+    );
+    metrics.push(sum('pizza_revenue_total', '', [doublePoint(this.pizzaRevenue, time)]));
+
     if (this.pizzaLatencyCount > 0) {
       metrics.push(
         gauge('pizza_creation_duration_ms', '', this.pizzaLatencySumMs / this.pizzaLatencyCount)

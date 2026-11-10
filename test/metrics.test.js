@@ -136,14 +136,25 @@ describe('Metrics', () => {
     expect(requests.sum.aggregationTemporality).toBe(2);
   });
 
-  test('toOtlpPayload omits counters that have no data yet', () => {
-    const names = metrics
-      .toOtlpPayload()
-      .resourceMetrics[0].scopeMetrics[0].metrics.map((m) => m.name);
+  test('toOtlpPayload always reports counters, starting at zero', () => {
+    const scope = metrics.toOtlpPayload().resourceMetrics[0].scopeMetrics[0];
+    const byName = Object.fromEntries(scope.metrics.map((m) => [m.name, m]));
 
-    expect(names).not.toContain('http_requests_total');
-    expect(names).not.toContain('pizzas_sold_total');
-    expect(names).toContain('system_cpu_usage_percent');
+    expect(byName.http_requests_total.sum.dataPoints.map((p) => p.asInt)).toEqual([
+      '0',
+      '0',
+      '0',
+      '0',
+    ]);
+    expect(byName.auth_attempts_total.sum.dataPoints.map((p) => p.asInt)).toEqual(['0', '0']);
+    expect(byName.pizzas_sold_total.sum.dataPoints[0].asInt).toBe('0');
+    expect(byName.pizza_creation_failures_total.sum.dataPoints[0].asInt).toBe('0');
+    expect(byName.pizza_revenue_total.sum.dataPoints[0].asDouble).toBe(0);
+
+    // Latency gauges have no meaning until a request or pizza has been seen.
+    expect(byName.http_request_duration_ms).toBeUndefined();
+    expect(byName.pizza_creation_duration_ms).toBeUndefined();
+    expect(byName.system_cpu_usage_percent).toBeDefined();
   });
 
   test('sendToGrafana does nothing without configuration', async () => {
