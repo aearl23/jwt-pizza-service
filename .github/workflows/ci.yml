@@ -41,6 +41,9 @@ jobs:
         env:
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           FACTORY_API_KEY: ${{ secrets.FACTORY_API_KEY }}
+          METRICS_ENDPOINT_URL: ${{ secrets.METRICS_ENDPOINT_URL }}
+          METRICS_ACCOUNT_ID: ${{ secrets.METRICS_ACCOUNT_ID }}
+          METRICS_API_KEY: ${{ secrets.METRICS_API_KEY }}
         run: node scripts/write-ci-config.js
 
       - name: Tests
@@ -85,6 +88,9 @@ jobs:
           DB_USER: ${{ secrets.DB_USER }}
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
           DB_NAME: ${{ secrets.DB_NAME }}
+          METRICS_ENDPOINT_URL: ${{ secrets.METRICS_ENDPOINT_URL }}
+          METRICS_ACCOUNT_ID: ${{ secrets.METRICS_ACCOUNT_ID }}
+          METRICS_API_KEY: ${{ secrets.METRICS_API_KEY }}
         run: |
           printf '{"version": "%s" }' "$version" > src/version.json
           node scripts/write-ci-config.js

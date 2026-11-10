@@ -32,6 +32,13 @@ const config = {
     url: process.env.FACTORY_URL || 'https://pizza-factory.cs329.click',
     apiKey: factoryApiKey,
   },
+  metrics: {
+    // Production uses its own source so dev metrics never mix with prod.
+    source: process.env.METRICS_SOURCE || 'jwt-pizza-service',
+    endpointUrl: process.env.METRICS_ENDPOINT_URL || '',
+    accountId: process.env.METRICS_ACCOUNT_ID || '',
+    apiKey: process.env.METRICS_API_KEY || '',
+  },
 };
 
 fs.writeFileSync('src/config.js', `module.exports = ${JSON.stringify(config, null, 2)};\n`);
