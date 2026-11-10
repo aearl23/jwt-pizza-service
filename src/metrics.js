@@ -1,5 +1,7 @@
 const os = require('os');
 
+const MAX_ATTEMPTS = 3;
+
 /**
  * Collects application metrics and ships them to Grafana Cloud (OTLP/HTTP).
  *
@@ -15,6 +17,7 @@ const os = require('os');
 class Metrics {
   constructor(config = {}) {
     this.config = config;
+    this.retryBaseDelayMs = 1000;
     this.reset();
     this.reportingTimer = null;
   }
@@ -111,12 +114,12 @@ class Metrics {
     }
 
     metrics.push(gauge('active_users', '1', this.activeUsers.size));
-    metrics.push(gauge('system_cpu_usage_percent', '%', this.cpuUsagePercent()));
-    metrics.push(gauge('system_memory_usage_percent', '%', this.memoryUsagePercent()));
+    metrics.push(gauge('system_cpu_usage_percent', '1', this.cpuUsagePercent()));
+    metrics.push(gauge('system_memory_usage_percent', '1', this.memoryUsagePercent()));
 
     if (this.requestLatencyCount > 0) {
       metrics.push(
-        gauge('http_request_duration_ms', 'ms', this.requestLatencySumMs / this.requestLatencyCount)
+        gauge('http_request_duration_ms', '1', this.requestLatencySumMs / this.requestLatencyCount)
       );
     }
 
@@ -129,11 +132,11 @@ class Metrics {
       );
     }
     if (this.pizzaRevenue > 0) {
-      metrics.push(sum('pizza_revenue_total', 'USD', [doublePoint(this.pizzaRevenue, time)]));
+      metrics.push(sum('pizza_revenue_total', '1', [doublePoint(this.pizzaRevenue, time)]));
     }
     if (this.pizzaLatencyCount > 0) {
       metrics.push(
-        gauge('pizza_creation_duration_ms', 'ms', this.pizzaLatencySumMs / this.pizzaLatencyCount)
+        gauge('pizza_creation_duration_ms', '1', this.pizzaLatencySumMs / this.pizzaLatencyCount)
       );
     }
 
@@ -173,25 +176,40 @@ class Metrics {
     this.pizzaLatencyCount = 0;
     this.activeUsers.clear();
 
-    try {
-      const response = await fetch(otlpEndpoint(endpointUrl), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Basic ${Buffer.from(`${accountId}:${apiKey}`).toString('base64')}`,
-        },
-        body: JSON.stringify(payload),
-      });
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      try {
+        const response = await fetch(otlpEndpoint(endpointUrl), {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Basic ${Buffer.from(`${accountId}:${apiKey}`).toString('base64')}`,
+          },
+          body: JSON.stringify(payload),
+        });
 
-      if (!response.ok) {
+        if (response.ok) {
+          return true;
+        }
+
+        // Grafana Cloud throttles ingestion with 429 and occasionally returns 5xx.
+        if ((response.status === 429 || response.status >= 500) && attempt < MAX_ATTEMPTS) {
+          await delay(attempt * this.retryBaseDelayMs);
+          continue;
+        }
+
         console.error(`metrics: Grafana rejected payload (${response.status})`);
         return false;
+      } catch (err) {
+        if (attempt < MAX_ATTEMPTS) {
+          await delay(attempt * this.retryBaseDelayMs);
+          continue;
+        }
+        console.error('metrics: unable to send metrics to Grafana', err.message);
+        return false;
       }
-      return true;
-    } catch (err) {
-      console.error('metrics: unable to send metrics to Grafana', err.message);
-      return false;
     }
+
+    return false;
   }
 
   /** Flush metrics on a fixed interval. */
@@ -216,6 +234,10 @@ class Metrics {
 
 function nowNanos() {
   return (BigInt(Date.now()) * 1000000n).toString();
+}
+
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function attribute(key, value) {

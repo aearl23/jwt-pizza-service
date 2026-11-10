@@ -18,6 +18,7 @@ describe('Metrics', () => {
       accountId: '123456',
       apiKey: 'glc_test',
     });
+    metrics.retryBaseDelayMs = 0;
   });
 
   afterEach(() => {
@@ -183,6 +184,16 @@ describe('Metrics', () => {
 
     await fullUrl.sendToGrafana();
     expect(global.fetch.mock.calls[0][0]).toBe('https://otlp-gateway.example.com/otlp/v1/metrics');
+  });
+
+  test('sendToGrafana retries after a 429 throttle', async () => {
+    global.fetch = jest
+      .fn()
+      .mockResolvedValueOnce({ ok: false, status: 429 })
+      .mockResolvedValueOnce({ ok: true });
+
+    await expect(metrics.sendToGrafana()).resolves.toBe(true);
+    expect(global.fetch).toHaveBeenCalledTimes(2);
   });
 
   test('sendToGrafana reports a rejected payload', async () => {
