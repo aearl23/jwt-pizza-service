@@ -99,7 +99,7 @@ class Metrics {
       timeUnixNano: time,
     }));
     if (methodPoints.length > 0) {
-      metrics.push(sum('http_requests_total', '1', methodPoints));
+      metrics.push(sum('http_requests_total', '', methodPoints));
     }
 
     const authPoints = Object.entries(this.authAttempts)
@@ -110,33 +110,33 @@ class Metrics {
         timeUnixNano: time,
       }));
     if (authPoints.length > 0) {
-      metrics.push(sum('auth_attempts_total', '1', authPoints));
+      metrics.push(sum('auth_attempts_total', '', authPoints));
     }
 
-    metrics.push(gauge('active_users', '1', this.activeUsers.size));
-    metrics.push(gauge('system_cpu_usage_percent', '1', this.cpuUsagePercent()));
-    metrics.push(gauge('system_memory_usage_percent', '1', this.memoryUsagePercent()));
+    metrics.push(gauge('active_users', '', this.activeUsers.size));
+    metrics.push(gauge('system_cpu_usage_percent', '', this.cpuUsagePercent()));
+    metrics.push(gauge('system_memory_usage_percent', '', this.memoryUsagePercent()));
 
     if (this.requestLatencyCount > 0) {
       metrics.push(
-        gauge('http_request_duration_ms', '1', this.requestLatencySumMs / this.requestLatencyCount)
+        gauge('http_request_duration_ms', '', this.requestLatencySumMs / this.requestLatencyCount)
       );
     }
 
     if (this.pizzasSold > 0) {
-      metrics.push(sum('pizzas_sold_total', '1', [intPoint(this.pizzasSold, time)]));
+      metrics.push(sum('pizzas_sold_total', '', [intPoint(this.pizzasSold, time)]));
     }
     if (this.pizzaCreationFailures > 0) {
       metrics.push(
-        sum('pizza_creation_failures_total', '1', [intPoint(this.pizzaCreationFailures, time)])
+        sum('pizza_creation_failures_total', '', [intPoint(this.pizzaCreationFailures, time)])
       );
     }
     if (this.pizzaRevenue > 0) {
-      metrics.push(sum('pizza_revenue_total', '1', [doublePoint(this.pizzaRevenue, time)]));
+      metrics.push(sum('pizza_revenue_total', '', [doublePoint(this.pizzaRevenue, time)]));
     }
     if (this.pizzaLatencyCount > 0) {
       metrics.push(
-        gauge('pizza_creation_duration_ms', '1', this.pizzaLatencySumMs / this.pizzaLatencyCount)
+        gauge('pizza_creation_duration_ms', '', this.pizzaLatencySumMs / this.pizzaLatencyCount)
       );
     }
 
