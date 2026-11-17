@@ -39,6 +39,14 @@ const config = {
     accountId: process.env.METRICS_ACCOUNT_ID || '',
     apiKey: process.env.METRICS_API_KEY || '',
   },
+  logging: {
+    // Keep development/test logs in their own source so they never mix with
+    // production logs in Grafana Loki.
+    source: process.env.LOGGING_SOURCE || 'jwt-pizza-service',
+    endpointUrl: process.env.LOGGING_ENDPOINT_URL || '',
+    accountId: process.env.LOGGING_ACCOUNT_ID || '',
+    apiKey: process.env.LOGGING_API_KEY || '',
+  },
 };
 
 fs.writeFileSync('src/config.js', `module.exports = ${JSON.stringify(config, null, 2)};\n`);

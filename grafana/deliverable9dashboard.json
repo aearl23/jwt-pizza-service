@@ -1,0 +1,632 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "datasource": "grafanacloud-logs",
+      "description": "Every event written by the service, split by event type: http, db, factory, and unhandledError.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 60,
+            "lineWidth": 1,
+            "showPoints": "never",
+            "stacking": {
+              "mode": "normal"
+            }
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "options": {
+        "legend": {
+          "calcs": [
+            "sum"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": "grafanacloud-logs",
+          "expr": "sum by (type) (rate({component=~\"jwt-pizza-service.*\"} [$__interval])) * 60",
+          "legendFormat": "{{type}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Log events / minute by type",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "grafanacloud-logs",
+      "description": "HTTP request rate grouped by the method recorded in the http log event.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 2,
+            "showPoints": "never"
+          },
+          "unit": "reqpm"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "id": 2,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "sum"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": "grafanacloud-logs",
+          "expr": "sum by (method) (rate({component=~\"jwt-pizza-service.*\", type=\"http\"} | json [$__interval])) * 60",
+          "legendFormat": "{{method}}",
+          "refId": "A"
+        }
+      ],
+      "title": "HTTP requests / minute by method",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "grafanacloud-logs",
+      "description": "Response status codes parsed from the http log event. Any 4xx are logged as warn and 5xx as error.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 20,
+            "lineWidth": 2,
+            "showPoints": "never",
+            "stacking": {
+              "mode": "normal"
+            }
+          },
+          "unit": "reqpm"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 0,
+        "y": 7
+      },
+      "id": 3,
+      "options": {
+        "legend": {
+          "calcs": [
+            "sum"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": "grafanacloud-logs",
+          "expr": "sum by (statusCode) (rate({component=~\"jwt-pizza-service.*\", type=\"http\"} | json [$__interval])) * 60",
+          "legendFormat": "{{statusCode}}",
+          "refId": "A"
+        }
+      ],
+      "title": "HTTP status codes / minute",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "grafanacloud-logs",
+      "description": "Requests that carried an Authorization header versus anonymous requests.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            }
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 8,
+        "y": 7
+      },
+      "id": 4,
+      "options": {
+        "displayLabels": [
+          "name",
+          "percent"
+        ],
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "values": [
+            "value"
+          ]
+        },
+        "pieType": "donut",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": "grafanacloud-logs",
+          "expr": "sum by (authorized) (count_over_time({component=~\"jwt-pizza-service.*\", type=\"http\"} | json [$__range]))",
+          "legendFormat": "{{authorized}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Authorization header present",
+      "type": "piechart"
+    },
+    {
+      "datasource": "grafanacloud-logs",
+      "description": "Database queries executed by the service, one log event per SQL statement.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 2,
+            "showPoints": "never"
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 16,
+        "y": 7
+      },
+      "id": 5,
+      "options": {
+        "legend": {
+          "calcs": [
+            "sum"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": "grafanacloud-logs",
+          "expr": "sum(count_over_time({component=~\"jwt-pizza-service.*\", type=\"db\"} [$__interval]))",
+          "legendFormat": "database queries",
+          "refId": "A"
+        },
+        {
+          "datasource": "grafanacloud-logs",
+          "expr": "sum(count_over_time({component=~\"jwt-pizza-service.*\", type=\"db\", level=\"error\"} [$__interval]))",
+          "legendFormat": "failed queries",
+          "refId": "B"
+        }
+      ],
+      "title": "Database queries / interval",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "grafanacloud-logs",
+      "description": "Every HTTP request: method, path, status code, whether an Authorization header was sent, and the request/response bodies. Bodies are sanitized (passwords, tokens and API keys are redacted).",
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 14
+      },
+      "id": 6,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": true,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "datasource": "grafanacloud-logs",
+          "expr": "{component=~\"jwt-pizza-service.*\", type=\"http\"}",
+          "refId": "A"
+        }
+      ],
+      "title": "HTTP requests — method, path, status, authorization, request/response body",
+      "type": "logs"
+    },
+    {
+      "datasource": "grafanacloud-logs",
+      "description": "Request and response payloads only, formatted for easy reading.",
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 0,
+        "y": 24
+      },
+      "id": 7,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": false,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": false,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "datasource": "grafanacloud-logs",
+          "expr": "{component=~\"jwt-pizza-service.*\", type=\"http\"} | json | line_format `{{.method}} {{.path}} -> {{.statusCode}} ({{.durationMs}}ms)\\nREQUEST: {{.requestBody}}\\nRESPONSE: {{.responseBody}}`",
+          "refId": "A"
+        }
+      ],
+      "title": "HTTP request and response bodies",
+      "type": "logs"
+    },
+    {
+      "datasource": "grafanacloud-logs",
+      "description": "SQL statements, their parameters (credentials redacted), row counts, latency and any failure.",
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 12,
+        "y": 24
+      },
+      "id": 8,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": true,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "datasource": "grafanacloud-logs",
+          "expr": "{component=~\"jwt-pizza-service.*\", type=\"db\"}",
+          "refId": "A"
+        }
+      ],
+      "title": "Database requests — SQL queries",
+      "type": "logs"
+    },
+    {
+      "datasource": "grafanacloud-logs",
+      "description": "Calls made to pizza-factory.cs329.click, showing the factory request body and the factory response body.",
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 34
+      },
+      "id": 9,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": true,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "datasource": "grafanacloud-logs",
+          "expr": "{component=~\"jwt-pizza-service.*\", type=\"factory\"}",
+          "refId": "A"
+        }
+      ],
+      "title": "Factory service requests — request and response bodies",
+      "type": "logs"
+    },
+    {
+      "datasource": "grafanacloud-logs",
+      "description": "Factory traffic grouped by phase so a missing response is visible immediately.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 15,
+            "lineWidth": 2,
+            "showPoints": "never"
+          },
+          "unit": "reqpm"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 44
+      },
+      "id": 10,
+      "options": {
+        "legend": {
+          "calcs": [
+            "sum"
+          ],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": "grafanacloud-logs",
+          "expr": "sum by (phase) (rate({component=~\"jwt-pizza-service.*\", type=\"factory\"} | json [$__interval])) * 60",
+          "legendFormat": "{{phase}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Factory calls / minute by phase",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "grafanacloud-logs",
+      "description": "Exceptions that escaped a request handler, including the request method, path, message and stack.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 44
+      },
+      "id": 11,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": true,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "datasource": "grafanacloud-logs",
+          "expr": "{component=~\"jwt-pizza-service.*\", type=\"unhandledError\"}",
+          "refId": "A"
+        }
+      ],
+      "title": "Unhandled exceptions",
+      "type": "logs"
+    },
+    {
+      "datasource": "grafanacloud-logs",
+      "description": "Total number of unhandled exceptions recorded in the selected time range.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 0,
+        "y": 52
+      },
+      "id": 12,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": "grafanacloud-logs",
+          "expr": "sum(count_over_time({component=~\"jwt-pizza-service.*\", type=\"unhandledError\"} [$__range]))",
+          "refId": "A"
+        }
+      ],
+      "title": "Unhandled exceptions (range)",
+      "type": "stat"
+    },
+    {
+      "datasource": "grafanacloud-logs",
+      "description": "Log volume by severity. HTTP 4xx are warn and 5xx are error.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 70,
+            "lineWidth": 1,
+            "showPoints": "never",
+            "stacking": {
+              "mode": "normal"
+            }
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 18,
+        "x": 6,
+        "y": 52
+      },
+      "id": 13,
+      "options": {
+        "legend": {
+          "calcs": [
+            "sum"
+          ],
+          "displayMode": "table",
+          "placement": "right"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": "grafanacloud-logs",
+          "expr": "sum by (level) (rate({component=~\"jwt-pizza-service.*\"} [$__interval])) * 60",
+          "legendFormat": "{{level}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Log events / minute by severity",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "grafanacloud-logs",
+      "description": "Raw stream of every log event so any required event can be searched directly.",
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 58
+      },
+      "id": 14,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": true,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "datasource": "grafanacloud-logs",
+          "expr": "{component=~\"jwt-pizza-service.*\"}",
+          "refId": "A"
+        }
+      ],
+      "title": "All JWT Pizza service logs",
+      "type": "logs"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": [
+    "jwt-pizza",
+    "deliverable-9",
+    "logging"
+  ],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "JWT Pizza Service Logs",
+  "uid": "jwt-pizza-logs",
+  "version": 1,
+  "weekStart": ""
+}

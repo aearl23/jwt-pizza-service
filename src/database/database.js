@@ -4,6 +4,7 @@ const config = require('../config.js');
 const { StatusCodeError } = require('../endpointHelper.js');
 const { Role } = require('../model/model.js');
 const dbModel = require('./dbModel.js');
+const logger = require('../logger.js');
 class DB {
   constructor() {
     this.initialized = this.initializeDatabase();
@@ -341,12 +342,23 @@ class DB {
   }
 
   async query(connection, sql, params) {
-    const [results] = await connection.execute(sql, params);
-    return results;
+    const start = process.hrtime.bigint();
+    try {
+      const [results] = await connection.execute(sql, params);
+      logger.dbLogger(sql, {
+        params,
+        durationMs: elapsedMs(start),
+        rowCount: Array.isArray(results) ? results.length : results?.affectedRows,
+      });
+      return results;
+    } catch (err) {
+      logger.dbLogger(sql, { params, durationMs: elapsedMs(start), error: err.message });
+      throw err;
+    }
   }
 
   async getID(connection, key, value, table) {
-    const [rows] = await connection.execute(`SELECT id FROM ${table} WHERE ${key}=?`, [value]);
+    const rows = await this.query(connection, `SELECT id FROM ${table} WHERE ${key}=?`, [value]);
     if (rows.length > 0) {
       return rows[0].id;
     }
@@ -380,18 +392,18 @@ class DB {
         const dbExists = await this.checkDatabaseExists(connection);
         console.log(dbExists ? 'Database exists' : 'Database does not exist, creating it');
 
-        await connection.query(`CREATE DATABASE IF NOT EXISTS ${config.db.connection.database}`);
-        await connection.query(`USE ${config.db.connection.database}`);
+        await this.adminQuery(connection, `CREATE DATABASE IF NOT EXISTS ${config.db.connection.database}`);
+        await this.adminQuery(connection, `USE ${config.db.connection.database}`);
 
         if (!dbExists) {
           console.log('Successfully created database');
         }
 
         for (const statement of dbModel.tableCreateStatements) {
-          await connection.query(statement);
+          await this.adminQuery(connection, statement);
         }
 
-        const [adminRows] = await connection.execute(`SELECT id FROM user WHERE email=?`, ['a@jwt.com']);
+        const adminRows = await this.query(connection, `SELECT id FROM user WHERE email=?`, ['a@jwt.com']);
         if (adminRows.length === 0) {
           const defaultAdmin = { name: '常用名字', email: 'a@jwt.com', password: 'admin', roles: [{ role: Role.Admin }] };
           await this.addUserOnConnection(connection, defaultAdmin);
@@ -400,14 +412,35 @@ class DB {
         connection.end();
       }
     } catch (err) {
-      console.error(JSON.stringify({ message: 'Error initializing database', exception: err.message, connection: config.db.connection }));
+      logger.unhandledErrorLogger(err, { source: 'database.initialize' });
+      console.error(JSON.stringify({ message: 'Error initializing database', exception: err.message }));
+    }
+  }
+
+  /** Run a query that does not go through the parameterized query path. */
+  async adminQuery(connection, sql) {
+    const start = process.hrtime.bigint();
+    try {
+      const [results] = await connection.query(sql);
+      logger.dbLogger(sql, {
+        durationMs: elapsedMs(start),
+        rowCount: Array.isArray(results) ? results.length : results?.affectedRows,
+      });
+      return results;
+    } catch (err) {
+      logger.dbLogger(sql, { durationMs: elapsedMs(start), error: err.message });
+      throw err;
     }
   }
 
   async checkDatabaseExists(connection) {
-    const [rows] = await connection.execute(`SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = ?`, [config.db.connection.database]);
+    const rows = await this.query(connection, `SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = ?`, [config.db.connection.database]);
     return rows.length > 0;
   }
+}
+
+function elapsedMs(start) {
+  return Number(process.hrtime.bigint() - start) / 1e6;
 }
 
 const db = new DB();

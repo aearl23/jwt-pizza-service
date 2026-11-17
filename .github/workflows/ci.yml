@@ -44,6 +44,10 @@ jobs:
           METRICS_ENDPOINT_URL: ${{ secrets.METRICS_ENDPOINT_URL }}
           METRICS_ACCOUNT_ID: ${{ secrets.METRICS_ACCOUNT_ID }}
           METRICS_API_KEY: ${{ secrets.METRICS_API_KEY }}
+          LOGGING_ENDPOINT_URL: ${{ secrets.LOGGING_ENDPOINT_URL }}
+          LOGGING_ACCOUNT_ID: ${{ secrets.LOGGING_ACCOUNT_ID }}
+          LOGGING_API_KEY: ${{ secrets.LOGGING_API_KEY }}
+          LOGGING_SOURCE: jwt-pizza-service-dev
         run: node scripts/write-ci-config.js
 
       - name: Tests
@@ -91,6 +95,10 @@ jobs:
           METRICS_ENDPOINT_URL: ${{ secrets.METRICS_ENDPOINT_URL }}
           METRICS_ACCOUNT_ID: ${{ secrets.METRICS_ACCOUNT_ID }}
           METRICS_API_KEY: ${{ secrets.METRICS_API_KEY }}
+          LOGGING_ENDPOINT_URL: ${{ secrets.LOGGING_ENDPOINT_URL }}
+          LOGGING_ACCOUNT_ID: ${{ secrets.LOGGING_ACCOUNT_ID }}
+          LOGGING_API_KEY: ${{ secrets.LOGGING_API_KEY }}
+          LOGGING_SOURCE: jwt-pizza-service
         run: |
           printf '{"version": "%s" }' "$version" > src/version.json
           node scripts/write-ci-config.js

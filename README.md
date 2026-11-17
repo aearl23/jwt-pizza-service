@@ -30,7 +30,44 @@ module.exports =  {
    url: 'https://pizza-factory.cs329.click',
    apiKey: 'yourapikeyhere',
    },
+   metrics: {
+   source: 'jwt-pizza-service', // use jwt-pizza-service-dev for development
+   endpointUrl: 'https://otlp-gateway-prod-us-west-0.grafana.net/otlp',
+   accountId: 'yourmetricsaccountid',
+   apiKey: 'yourmetricsapikey',
+   },
+   logging: {
+   source: 'jwt-pizza-service', // use jwt-pizza-service-dev for development
+   endpointUrl: 'https://logs-prod-021.grafana.net/loki/api/v1/push',
+   accountId: 'yourlokiaccountid',
+   apiKey: 'yourlokiapiKey',
+   },
 };
+```
+
+If `logging` is omitted or any of the three logging values is empty, the service
+runs normally and simply does not ship logs.
+
+## Logging
+
+All observability code lives in `src/logger.js` and writes to Grafana Cloud Loki:
+
+| Event | Where it is emitted | What it contains |
+| --- | --- | --- |
+| `http` | `logger.httpLogger` middleware | method, path, status code, whether an `Authorization` header was sent, request body, response body, duration |
+| `db` | `DB.query` / `DB.adminQuery` | SQL statement, parameters, duration, row count, error |
+| `factory` | `POST /api/order` | factory request body and factory response body, status, duration |
+| `unhandledError` | Express error handler, `uncaughtException`, `unhandledRejection` | message, status code, method/path, truncated stack |
+
+Every entry is sanitized before it leaves the process: passwords, JWTs, bearer
+tokens, API keys, cookies and bcrypt hashes are replaced with `[REDACTED]`.
+
+Logs are buffered and flushed to Loki every second.
+
+To generate log traffic against a running service:
+
+```sh
+node scripts/simulate-traffic.js https://pizza-service.pizzeriaaaronearl.click 10
 ```
 
 ## Endpoints
