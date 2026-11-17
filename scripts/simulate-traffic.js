@@ -7,6 +7,7 @@
  *   - http   : 200s, a 401, and a 404 (method, path, status, auth header)
  *   - db     : user/menu/order/franchise queries
  *   - factory: the order request and response bodies
+ *   - unhandledError: a failed login
  *
  * Usage:
  *   node scripts/simulate-traffic.js [baseUrl] [iterations]
@@ -71,6 +72,10 @@ async function runIteration(index) {
     body: { name: `Traffic Diner ${suffix}`, email, password },
   });
   const token = (register.body && register.body.token) || null;
+
+  // Failed login: the service throws a StatusCodeError, which is recorded as an
+  // unhandledError log event.
+  await call('PUT', '/api/auth', { body: { email, password: 'definitely-not-the-password' } });
 
   if (token) {
     await call('GET', '/api/user/me', { token });
