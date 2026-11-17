@@ -23,7 +23,7 @@
   "panels": [
     {
       "datasource": "grafanacloud-logs",
-      "description": "Every event written by the service, split by event type: http, db, factory, and unhandledError.",
+      "description": "Every event written by the service, split by event type: http, db, factory, and unhandledError. Production logs use component=jwt-pizza-service and development logs use component=jwt-pizza-service-dev.",
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -119,7 +119,7 @@
     },
     {
       "datasource": "grafanacloud-logs",
-      "description": "Response status codes parsed from the http log event. Any 4xx are logged as warn and 5xx as error.",
+      "description": "Response status codes parsed from the http log event. 4xx requests are logged as warn and 5xx as error.",
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -168,7 +168,7 @@
     },
     {
       "datasource": "grafanacloud-logs",
-      "description": "Requests that carried an Authorization header versus anonymous requests.",
+      "description": "Requests that carried an Authorization header (true) versus anonymous requests (false).",
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -227,7 +227,7 @@
     },
     {
       "datasource": "grafanacloud-logs",
-      "description": "Database queries executed by the service, one log event per SQL statement.",
+      "description": "Database queries executed by the service, plus any query that failed.",
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -279,9 +279,9 @@
     },
     {
       "datasource": "grafanacloud-logs",
-      "description": "Every HTTP request: method, path, status code, whether an Authorization header was sent, and the request/response bodies. Bodies are sanitized (passwords, tokens and API keys are redacted).",
+      "description": "One line per HTTP request: method, path, status code, whether an Authorization header was sent, and the response time.",
       "gridPos": {
-        "h": 10,
+        "h": 9,
         "w": 24,
         "x": 0,
         "y": 14
@@ -292,7 +292,37 @@
         "enableLogDetails": true,
         "prettifyLogMessage": false,
         "showCommonLabels": false,
-        "showLabels": true,
+        "showLabels": false,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "datasource": "grafanacloud-logs",
+          "expr": "{component=~\"jwt-pizza-service.*\", type=\"http\"} | json | line_format `{{.method}} {{.path}} -> {{.statusCode}} | authorized={{.authorized}} | {{.durationMs}}ms`",
+          "refId": "A"
+        }
+      ],
+      "title": "HTTP requests — method, path, status code, authorization header",
+      "type": "logs"
+    },
+    {
+      "datasource": "grafanacloud-logs",
+      "description": "Full HTTP log line with the request and response bodies. Bodies are sanitized before they leave the service: passwords, JWTs, bearer tokens and API keys are replaced with [REDACTED]. Expand a line to see the structured fields.",
+      "gridPos": {
+        "h": 11,
+        "w": 24,
+        "x": 0,
+        "y": 23
+      },
+      "id": 7,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": true,
+        "showCommonLabels": false,
+        "showLabels": false,
         "showTime": true,
         "sortOrder": "Descending",
         "wrapLogMessage": true
@@ -304,22 +334,22 @@
           "refId": "A"
         }
       ],
-      "title": "HTTP requests — method, path, status, authorization, request/response body",
+      "title": "HTTP request body and response body",
       "type": "logs"
     },
     {
       "datasource": "grafanacloud-logs",
-      "description": "Request and response payloads only, formatted for easy reading.",
+      "description": "Every SQL statement executed by the service with its parameters (credentials redacted), row count and latency.",
       "gridPos": {
-        "h": 10,
+        "h": 11,
         "w": 12,
         "x": 0,
-        "y": 24
+        "y": 34
       },
-      "id": 7,
+      "id": 8,
       "options": {
         "dedupStrategy": "none",
-        "enableLogDetails": false,
+        "enableLogDetails": true,
         "prettifyLogMessage": false,
         "showCommonLabels": false,
         "showLabels": false,
@@ -330,37 +360,7 @@
       "targets": [
         {
           "datasource": "grafanacloud-logs",
-          "expr": "{component=~\"jwt-pizza-service.*\", type=\"http\"} | json | line_format `{{.method}} {{.path}} -> {{.statusCode}} ({{.durationMs}}ms)\\nREQUEST: {{.requestBody}}\\nRESPONSE: {{.responseBody}}`",
-          "refId": "A"
-        }
-      ],
-      "title": "HTTP request and response bodies",
-      "type": "logs"
-    },
-    {
-      "datasource": "grafanacloud-logs",
-      "description": "SQL statements, their parameters (credentials redacted), row counts, latency and any failure.",
-      "gridPos": {
-        "h": 10,
-        "w": 12,
-        "x": 12,
-        "y": 24
-      },
-      "id": 8,
-      "options": {
-        "dedupStrategy": "none",
-        "enableLogDetails": true,
-        "prettifyLogMessage": false,
-        "showCommonLabels": false,
-        "showLabels": true,
-        "showTime": true,
-        "sortOrder": "Descending",
-        "wrapLogMessage": true
-      },
-      "targets": [
-        {
-          "datasource": "grafanacloud-logs",
-          "expr": "{component=~\"jwt-pizza-service.*\", type=\"db\"}",
+          "expr": "{component=~\"jwt-pizza-service.*\", type=\"db\"} | json | line_format `{{.sql}} | {{.durationMs}}ms | rows={{.rowCount}}`",
           "refId": "A"
         }
       ],
@@ -369,20 +369,20 @@
     },
     {
       "datasource": "grafanacloud-logs",
-      "description": "Calls made to pizza-factory.cs329.click, showing the factory request body and the factory response body.",
+      "description": "Requests sent to pizza-factory.cs329.click with the factory request body and the factory response body. Expand a line to inspect the payloads.",
       "gridPos": {
-        "h": 10,
-        "w": 24,
-        "x": 0,
+        "h": 11,
+        "w": 12,
+        "x": 12,
         "y": 34
       },
       "id": 9,
       "options": {
         "dedupStrategy": "none",
         "enableLogDetails": true,
-        "prettifyLogMessage": false,
+        "prettifyLogMessage": true,
         "showCommonLabels": false,
-        "showLabels": true,
+        "showLabels": false,
         "showTime": true,
         "sortOrder": "Descending",
         "wrapLogMessage": true
@@ -394,12 +394,12 @@
           "refId": "A"
         }
       ],
-      "title": "Factory service requests — request and response bodies",
+      "title": "Factory service — request and response bodies",
       "type": "logs"
     },
     {
       "datasource": "grafanacloud-logs",
-      "description": "Factory traffic grouped by phase so a missing response is visible immediately.",
+      "description": "Factory traffic grouped by phase so a request without a matching response is visible immediately.",
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -416,7 +416,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 44
+        "y": 45
       },
       "id": 10,
       "options": {
@@ -445,20 +445,20 @@
     },
     {
       "datasource": "grafanacloud-logs",
-      "description": "Exceptions that escaped a request handler, including the request method, path, message and stack.",
+      "description": "Exceptions that escaped a request handler, the Express error handler, uncaughtException, or unhandledRejection. Includes the request method, path, message and top of the stack.",
       "gridPos": {
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 44
+        "y": 45
       },
       "id": 11,
       "options": {
         "dedupStrategy": "none",
         "enableLogDetails": true,
-        "prettifyLogMessage": false,
+        "prettifyLogMessage": true,
         "showCommonLabels": false,
-        "showLabels": true,
+        "showLabels": false,
         "showTime": true,
         "sortOrder": "Descending",
         "wrapLogMessage": true
@@ -475,7 +475,7 @@
     },
     {
       "datasource": "grafanacloud-logs",
-      "description": "Total number of unhandled exceptions recorded in the selected time range.",
+      "description": "Total number of unhandled exceptions in the selected time range.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -502,7 +502,7 @@
         "h": 6,
         "w": 6,
         "x": 0,
-        "y": 52
+        "y": 53
       },
       "id": 12,
       "options": {
@@ -531,7 +531,7 @@
     },
     {
       "datasource": "grafanacloud-logs",
-      "description": "Log volume by severity. HTTP 4xx are warn and 5xx are error.",
+      "description": "Log volume by severity. HTTP 4xx responses are recorded as warn, 5xx and exceptions as error.",
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -551,7 +551,7 @@
         "h": 6,
         "w": 18,
         "x": 6,
-        "y": 52
+        "y": 53
       },
       "id": 13,
       "options": {
@@ -580,18 +580,18 @@
     },
     {
       "datasource": "grafanacloud-logs",
-      "description": "Raw stream of every log event so any required event can be searched directly.",
+      "description": "Raw stream of every log event so any required event can be searched directly, for example: {type=\"db\"} |= \"INSERT\".",
       "gridPos": {
         "h": 10,
         "w": 24,
         "x": 0,
-        "y": 58
+        "y": 59
       },
       "id": 14,
       "options": {
         "dedupStrategy": "none",
         "enableLogDetails": true,
-        "prettifyLogMessage": false,
+        "prettifyLogMessage": true,
         "showCommonLabels": false,
         "showLabels": true,
         "showTime": true,
@@ -620,8 +620,8 @@
     "list": []
   },
   "time": {
-    "from": "now-6h",
-    "to": "now"
+    "from": "2026-11-17T03:15:00.000Z",
+    "to": "2026-11-17T03:35:00.000Z"
   },
   "timepicker": {},
   "timezone": "browser",
